@@ -1,0 +1,127 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <math.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+pthread_mutex_t mutexOne = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexTwo = PTHREAD_MUTEX_INITIALIZER;
+
+void *schedule (void *schedInfo) {
+    schedulerInfo* new_scheduler = newScheduler(((schedulerInfo*) schedInfo).core, ((schedulerInfo*) schedInfo).schedulerType, ((schedulerInfo*) schedInfo).taskList, ((schedulerInfo*) schedInfo).outputFile);
+
+    unsigned int clock = 0;
+    
+    pthread_mutex_lock(&mutexOne);
+    while (clock < (((schedulerInfo*)schedInfo).taskList.firstTask.arrival_time) {
+        clock++;
+    }
+    pthread_mutex_unlock(&mutexOne);
+
+    if (((schedulerInfo*) schedInfo).schedulerType == 'p') {
+        bool work = false;
+        int timeQuantum = calculateQuantum(((schedulerInfo*) schedInfo).taskList);
+        queueTask* blockedTaskQueue = newQueueForTask();  //deve essere diverso dal nome per FCFS
+        queueTask* readyTaskQueue = newQueueForTask();  //come sopra
+        
+        //ci sarà bisogno di code e task temporanei??
+        
+        while (work == false) {
+            //valuto se posso schedulare un task (o più task)
+            pthread_mutex_lock(&mutexOne);
+            if(!isEmpty(schedInfo -> taskList)) {
+                while(schedInfo -> taskList -> firstTask -> arrival_time <= clock) {
+                    insertTaskInQueue(schedInfo -> taskList -> firstTask, readyTaskQueue);
+                    updateSchedulerStatus(schedInfo -> outputFile, readyTaskQueue -> firstTask, schedInfo -> core, clock);  //stampo new
+                    readyTaskQueue -> firstTask -> processState = 1;   //lo metto già a ready
+                    schedInfo -> taskList -> firstTask = schedInfo -> taskList -> firstTask -> next;   //metto il puntatore sul task successivo
+                }
+            }
+            pthread_mutex_unlock(&mutexOne);
+
+            //valuto se la coda dei bloccati non è vuota
+            pthread_mutex_lock(&mutexOne);
+            if(!isEmpty(blockedTaskQueue)) {
+                //se non è vuota valuto se posso sbloccare un task
+                if((blockedTaskQueue -> firstTask -> instr_list -> headInstruction -> blockingTime) + (blockedTaskQueue -> firstTask -> clockWhenBlocked) <= clock) {  //aggiungere blockingTime!!!!!
+                    blockedTaskQueue -> firstTask -> processState = 1;  
+                    blockedTaskQueue -> firstTask -> instr_list -> headInstruction -> typeFlag = 0;
+                    updateSchedulerStatus(outputFile, (*blockedTaskQueue).firstTask, core, clock);
+                    insertTaskInQueue((*blockedTaskQueue).firstTask, readyTaskQueue);
+                    removeTaskFromQueue(blockedTaskQueue);
+                }
+            }
+            pthread_mutex_unlock(&mutexOne);
+
+            //valuto se la coda dei ready non è vuota
+            pthread_mutex_lock(&mutexOne);
+            if(!isEmpty(readyTaskQueue)) {
+                pthread_mutex_lock(&mutexTwo);
+                instruction *currentInstruction = readyTaskQueue -> firstTask -> instr_list -> headInstruction;
+                pthread_mutex_unlock(&mutexTwo);
+                //istruzione non bloccante
+                if(currentInstruction -> typeFlag == 0) {
+                    readyTaskQueue -> firstTask -> processState = 2; //ready -> running
+                    updateSchedulerStatus(schedInfo -> outputFile, readyTaskQueue -> firstTask, schedInfo -> core, clock);
+                
+                    int quantum = clock + timeQuantum
+                    int time = currentInstruction -> lenght + clock;
+
+                    //se l'istruzione sta nel quanto
+                    if(currentInstruction -> lenght <= timeQuantum) {
+                        while(time != clock) {
+                            clock++;
+                        }
+
+                        //se l'istruzione è l'ultima del task
+                        if(currentInstruction -> next == NULL) {
+                            readyTaskQueue -> firstTask -> processState = 4;  //running -> exit
+                            updateSchedulerStatus(schedInfo -> outputFile, readyTaskQueue -> firstTask, schedInfo -> core, clock);
+                            removeInstructionFromTask(readyTaskQueue -> firstTask);
+                            removeTaskFromQueue(readyTaskQueue;)
+                        }
+                    }
+
+                    //se l'istruzione non sta nel quanto
+                    if(currentInstruction -> lenght > timeQuantum) {
+                        while(quantum != clock) {
+                            clock++;
+                        }
+                        //aggiorno la lunghezza dell'istruzione
+                        readyTaskQueue -> firstTask -> instr_list -> headInstruction -> lenght -= timeQuantum;
+
+                        readyTaskQueue -> firstTask -> processState = 1;   //running -> ready
+                        updateSchedulerStatus(schedInfo -> outputFile, readyTaskQueue -> firstTask, schedInfo -> core, clock);
+                        insertTaskInQueue(readyTaskQueue -> firstTask, readyTaskQueue);
+                        removeTaskFromQueue(readyTaskQueue);
+                    }
+                }
+
+                //istruzione bloccante
+                else {
+                    readyTaskQueue -> firstTask -> processState = 3;  //ready -> running
+                    updateSchedulerStatus(schedInfo -> outputFile, readyTaskQueue -> firstTask. schedInfo -> core, clock);
+                    readyTaskQueue -> firstTask -> processState = 4;  //running -> blocked
+                    updateSchedulerStatus(schedInfo -> outputFile, readyTaskQueue -> firstTask. schedInfo -> core, clock);
+                    readyTaskQueue -> firstTask -> clockWhenBlocked = clock;
+                    insertTaskInQueue(readyTaskQueue -> firstTask, blockedTaskQueue);
+                    removeTaskFromQueue(readyTaskQueue);
+                }
+            }
+            pthread_mutex_unlock(&mutexOne);
+
+            clock++;
+            
+            pthread_mutex_lock(&mutexOne);
+            if (isEmpty(readyTaskQueue) && isEmpty(blockedTaskQueue) && isEmpty(schedInfo -> taskList)) {
+                work = true;
+            }
+            pthread_mutex_unlock(&mutexOne);
+        }
+    }
+
+
+
+}
