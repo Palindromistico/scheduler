@@ -82,6 +82,8 @@ void *schedule (void *schedInfo) {
                             removeInstructionFromTask(readyTaskQueue -> firstTask);
                             removeTaskFromQueue(readyTaskQueue;)
                         }
+                        else {
+                            removeInstructionFromTask(readyTaskQueue -> firstTask);
                     }
 
                     //se l'istruzione non sta nel quanto
